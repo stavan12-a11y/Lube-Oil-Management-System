@@ -1,0 +1,13 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build && node scripts/strip-module-type.mjs",
+  "functions": {
+    "api/**/*.{js,cjs}": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
+  "github": {
+    "silent": false
+  }
+}
