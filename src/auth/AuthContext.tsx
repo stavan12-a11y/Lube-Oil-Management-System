@@ -13,13 +13,21 @@ import {
   cloudLogout,
   isCloudBuildDisabled,
   isCloudBuildFlag,
-  probeCloudApi,
+  probeCloudHealth,
 } from "../lib/cloudApi";
 
 // ---------------------------------------------------------------------------
 // Login modes (detected at runtime):
-// • Cloud API: Vercel `/api/*` + Neon when ping succeeds or VITE_CLOUD_MODE=true
-// • Local: per-browser localStorage + static password
+// • Cloud API: Vercel `/api/*` + Neon, once DATABASE_URL / TEAM_PASSWORD /
+//   AUTH_SECRET are all configured on the server (checked via `/api/health`),
+//   or when VITE_CLOUD_MODE=true is forced at build time.
+// • Local: per-browser localStorage + static password.
+//
+// Note: `/api/ping` alone is NOT a reliable signal — Vercel deploys the
+// `api/` folder unconditionally, so it always responds even when no cloud
+// env vars are configured. Using it to decide "cloud mode" would make a
+// fresh, zero-config Vercel deploy try (and fail) to log in against a
+// database that was never set up.
 // ---------------------------------------------------------------------------
 
 const LOCAL_USERNAME = import.meta.env.VITE_APP_USERNAME ?? "admin";
@@ -59,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       let useCloud = isCloudBuildFlag();
       if (!useCloud && !isCloudBuildDisabled()) {
-        useCloud = await probeCloudApi();
+        const health = await probeCloudHealth();
+        useCloud = health.ok;
       }
 
       if (!active) return;

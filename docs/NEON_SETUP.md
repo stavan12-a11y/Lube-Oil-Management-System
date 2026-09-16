@@ -49,7 +49,7 @@ You should see “Success” — one table `app_state` is created.
 
 | Variable name | Value | Notes |
 |---------------|-------|-------|
-| `VITE_CLOUD_MODE` | `true` (optional) | Force cloud mode; auto-detected if `/api/ping` works |
+| `VITE_CLOUD_MODE` | `true` (optional) | Force cloud mode; otherwise auto-detected once `DATABASE_URL`, `TEAM_PASSWORD`, and `AUTH_SECRET` are all set (checked via `/api/health`) |
 | `DATABASE_URL` | `postgresql://...` from Step 1 | **Server only** — Neon connection string |
 | `TEAM_USERNAME` | e.g. `lube-admin` | Login username for your team |
 | `TEAM_PASSWORD` | choose a strong password | Login password — share via team password manager |
