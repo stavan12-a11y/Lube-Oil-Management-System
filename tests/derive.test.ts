@@ -49,7 +49,6 @@ describe("getEquipmentStatus", () => {
         notes: "",
         result: "abnormal",
         readings: emptyLabReadings(),
-        steps: [],
         actions: [],
         status: "in-progress",
       },
@@ -57,7 +56,7 @@ describe("getEquipmentStatus", () => {
     expect(getEquipmentStatus(eq)).toBe("critical");
   });
 
-  it("returns 'testing' for an active normal, in-progress sample", () => {
+  it("returns 'testing' for an active sample awaiting its lab report", () => {
     const eq = baseEquipment({
       activeSample: {
         id: "s1",
@@ -66,9 +65,8 @@ describe("getEquipmentStatus", () => {
         completedAt: null,
         labReportNumber: "",
         notes: "",
-        result: "normal",
+        result: null,
         readings: emptyLabReadings(),
-        steps: [],
         actions: [],
         status: "in-progress",
       },
@@ -88,7 +86,6 @@ describe("getEquipmentStatus", () => {
           notes: "",
           result: "normal",
           readings: emptyLabReadings(),
-          steps: [],
           actions: [],
           status: "completed",
         },
@@ -112,7 +109,6 @@ describe("getScheduleInfo", () => {
           notes: "",
           result: "normal",
           readings: emptyLabReadings(),
-          steps: [],
           actions: [],
           status: "completed",
         },
@@ -136,7 +132,6 @@ describe("getScheduleInfo", () => {
           notes: "",
           result: "normal",
           readings: emptyLabReadings(),
-          steps: [],
           actions: [],
           status: "completed",
         },
@@ -168,7 +163,6 @@ describe("isEquipmentCompliant", () => {
           notes: "",
           result: "normal",
           readings: emptyLabReadings(),
-          steps: [],
           actions: [],
           status: "completed",
         },
@@ -188,7 +182,6 @@ describe("isEquipmentCompliant", () => {
           notes: "",
           result: "normal",
           readings: emptyLabReadings(),
-          steps: [],
           actions: [],
           status: "completed",
         },

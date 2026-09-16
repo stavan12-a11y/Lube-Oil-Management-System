@@ -202,3 +202,28 @@ export const ShieldIcon = (props: IconProps) => (
     <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z" />
   </svg>
 );
+
+export const UploadIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M12 15V3" />
+    <path d="m7 8 5-5 5 5" />
+    <path d="M5 21h14a2 2 0 0 0 2-2v-5" />
+    <path d="M3 14v5a2 2 0 0 0 2 2h1" />
+  </svg>
+);
+
+export const FileTextIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2Z" />
+    <path d="M14 2v6h6" />
+    <path d="M9 13h6" />
+    <path d="M9 17h6" />
+  </svg>
+);
+
+export const SparklesIcon = (props: IconProps) => (
+  <svg {...base(props)}>
+    <path d="M12 3v4M12 17v4M4.2 6.2l2.8 2.8M17 15l2.8 2.8M3 12h4M17 12h4M4.2 17.8 7 15M17 9l2.8-2.8" />
+    <circle cx="12" cy="12" r="2" />
+  </svg>
+);

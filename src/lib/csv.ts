@@ -23,7 +23,7 @@ function sampleRows(equipment: Equipment, sample: OilSample, kind: string): stri
       kind,
       equipment.name,
       `Date: ${sample.date}`,
-      `Result: ${sample.result}`,
+      `Result: ${sample.result ?? "Awaiting lab report"}`,
       `Status: ${sample.status}`,
       `Lab report #: ${sample.labReportNumber}`,
       `Started: ${sample.startedAt}`,
@@ -45,18 +45,6 @@ function sampleRows(equipment: Equipment, sample: OilSample, kind: string): stri
       `Flash pt C: ${sample.readings.flashPointC}`,
     ])
   );
-  for (const step of sample.steps) {
-    lines.push(
-      row([
-        "",
-        "Step",
-        step.label,
-        step.completed ? "completed" : "pending",
-        `Timestamp: ${step.completedAt ?? ""}`,
-        `Notes: ${step.notes}`,
-      ])
-    );
-  }
   for (const act of sample.actions) {
     lines.push(
       row(["", "Corrective action", `Logged: ${act.loggedAt}`, `Detail: ${act.description}`])
@@ -120,7 +108,6 @@ export function fleetToCsv(equipment: Equipment[]): string {
     "Last Sampled",
     "Active Sample Date",
     "Active Result",
-    "Steps Completed",
     "Corrective Actions Logged",
     "Archived Samples",
   ];
@@ -129,9 +116,6 @@ export function fleetToCsv(equipment: Equipment[]): string {
   for (const e of equipment) {
     const status = getEquipmentStatus(e);
     const active = e.activeSample;
-    const stepsDone = active
-      ? `${active.steps.filter((s) => s.completed).length}/${active.steps.length}`
-      : "";
     lines.push(
       row([
         e.name,
@@ -146,8 +130,7 @@ export function fleetToCsv(equipment: Equipment[]): string {
         STATUS_META[status].label,
         getLastSampledDate(e) ?? "Never",
         active?.date ?? "",
-        active?.result ?? "",
-        stepsDone,
+        active ? active.result ?? "Awaiting lab report" : "",
         active?.actions.length ?? 0,
         e.history.length,
       ])

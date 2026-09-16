@@ -20,9 +20,9 @@ export function getEquipmentStatus(equipment: Equipment): EquipmentStatus {
   const active = equipment.activeSample;
   if (active) {
     if (active.result === "abnormal") return "critical";
+    if (active.result === null) return "testing";
     // Legacy: a completed sample left on the active slot still reads green.
-    if (active.status === "completed") return "normal";
-    return "testing";
+    return "normal";
   }
   // No active sample: derive from the most recent archived round.
   const last = getMostRecentHistory(equipment);
@@ -180,7 +180,7 @@ export const STATUS_META: Record<
     badgeBg: "bg-rose-50",
   },
   testing: {
-    label: "Sample in progress",
+    label: "Awaiting lab report",
     dot: "bg-amber-500",
     ring: "ring-amber-200",
     text: "text-amber-700",

@@ -1,5 +1,3 @@
-import { SAMPLE_WORKFLOW_STEPS, type WorkflowStep } from "../types";
-
 /** Number of days before the next-due date that equipment is flagged "due soon". */
 export const WARNING_WINDOW_DAYS = 15;
 
@@ -15,16 +13,6 @@ export function nowIso(): string {
 
 export function todayDate(): string {
   return new Date().toISOString().slice(0, 10);
-}
-
-export function freshWorkflowSteps(): WorkflowStep[] {
-  return SAMPLE_WORKFLOW_STEPS.map((s) => ({
-    key: s.key,
-    label: s.label,
-    completed: false,
-    completedAt: null,
-    notes: "",
-  }));
 }
 
 /** Parse a yyyy-mm-dd or ISO string into a Date (local midnight for date-only). */

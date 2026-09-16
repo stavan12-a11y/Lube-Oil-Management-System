@@ -1,21 +1,3 @@
-export const SAMPLE_WORKFLOW_STEPS = [
-  { key: "collected", label: "Sample Collected" },
-  { key: "sent_to_lab", label: "Sent to Lab" },
-  { key: "report_received", label: "Lab Report Received" },
-  { key: "reviewed", label: "Reviewed & Filed" },
-] as const;
-
-export type WorkflowStepKey = (typeof SAMPLE_WORKFLOW_STEPS)[number]["key"];
-
-export interface WorkflowStep {
-  key: WorkflowStepKey;
-  label: string;
-  completed: boolean;
-  /** ISO timestamp captured when the step is marked complete. */
-  completedAt: string | null;
-  notes: string;
-}
-
 export interface CorrectiveAction {
   id: string;
   /** ISO timestamp the action was logged. */
@@ -23,6 +5,7 @@ export interface CorrectiveAction {
   description: string;
 }
 
+/** `null` means the sample has been drawn but the lab report hasn't come back yet. */
 export type SampleResult = "normal" | "abnormal";
 export type SampleStatus = "in-progress" | "completed";
 
@@ -67,10 +50,12 @@ export interface OilSample {
   /** ISO timestamp the sample round was completed (filed or resolved). */
   completedAt: string | null;
   labReportNumber: string;
+  /** Filename of the lab report PDF the readings were extracted/attached from, if any. */
+  labReportFileName?: string;
   notes: string;
-  result: SampleResult;
+  /** `null` while the sample is drawn but awaiting a lab report. */
+  result: SampleResult | null;
   readings: LabReadings;
-  steps: WorkflowStep[];
   actions: CorrectiveAction[];
   status: SampleStatus;
 }
@@ -121,7 +106,7 @@ export interface ActivityEntry {
 /**
  * Visual status derived from an equipment item's sampling state.
  * - critical: red   — abnormal lab result, corrective action required
- * - testing:  amber — a sample is in the lab / being processed
+ * - testing:  amber — a sample is drawn and awaiting its lab report
  * - normal:   green — most recent sample was normal and filed
  * - none:     gray  — no sample has ever been recorded
  */

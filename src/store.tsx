@@ -35,13 +35,7 @@ import {
 import { useAuth } from "./auth/AuthContext";
 
 export type SyncStatus = "local" | "loading" | "saving" | "saved" | "error";
-import {
-  formatDate,
-  formatDateTime,
-  freshWorkflowSteps,
-  nowIso,
-  uid,
-} from "./lib/helpers";
+import { formatDate, formatDateTime, nowIso, uid } from "./lib/helpers";
 
 const EQUIPMENT_FIELD_LABELS: Partial<Record<keyof Equipment, string>> = {
   name: "Name / tag",
@@ -97,8 +91,11 @@ export function equipmentDuplicateInput(source: Equipment): NewEquipmentInput {
 export interface StartSampleInput {
   date: string;
   notes: string;
-  result: SampleResult;
+  /** `null` when the sample is drawn but the lab report hasn't come back yet. */
+  result: SampleResult | null;
   labReportNumber: string;
+  labReportFileName?: string;
+  readings?: Partial<OilSample["readings"]>;
 }
 
 interface LubeOilContextValue {
@@ -110,36 +107,22 @@ interface LubeOilContextValue {
     value: Equipment[K]
   ) => void;
   removeEquipment: (equipmentId: string) => void;
+  /** Starts a new sample round. If `result` is already known (normal/abnormal), the
+   * sample is filed immediately (normal) or opened for corrective action (abnormal). */
   startSample: (equipmentId: string, input: StartSampleInput) => void;
-  /** Advance the active workflow; archives to history when the final step is done. */
-  completeStep: (equipmentId: string, stepKey: string, notes: string) => void;
+  /** Marks corrective actions complete for the active abnormal sample and archives it. */
   resolveSample: (equipmentId: string) => void;
-  /** Edit any sample (active or archived) — date, notes, result, lab report #, readings. */
+  /** Edit any sample (active or archived) — date, notes, result, lab report #, readings.
+   * Setting `result: "normal"` on the active sample files it to history immediately. */
   editSample: (
     equipmentId: string,
     sampleId: string,
     patch: Partial<
-      Pick<OilSample, "date" | "notes" | "result" | "labReportNumber">
+      Pick<
+        OilSample,
+        "date" | "notes" | "result" | "labReportNumber" | "labReportFileName"
+      >
     > & { readings?: Partial<OilSample["readings"]> }
-  ) => void;
-  setStepNotes: (
-    equipmentId: string,
-    sampleId: string,
-    stepKey: string,
-    notes: string
-  ) => void;
-  setStepCompleted: (
-    equipmentId: string,
-    sampleId: string,
-    stepKey: string,
-    completed: boolean
-  ) => void;
-  /** Edit the timestamp captured for a completed step (ISO string). */
-  setStepDate: (
-    equipmentId: string,
-    sampleId: string,
-    stepKey: string,
-    completedAt: string
   ) => void;
   addAction: (equipmentId: string, sampleId: string, description: string) => void;
   editAction: (
@@ -444,87 +427,43 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
 
   const startSample = useCallback(
     (equipmentId: string, input: StartSampleInput) => {
+      const startedAt = nowIso();
+      const sample: OilSample = {
+        id: uid("smp"),
+        date: input.date,
+        startedAt,
+        completedAt: input.result === "normal" ? startedAt : null,
+        labReportNumber: input.labReportNumber,
+        labReportFileName: input.labReportFileName,
+        notes: input.notes,
+        result: input.result,
+        readings: { ...emptyLabReadings(), ...(input.readings ?? {}) },
+        actions: [],
+        status: input.result === "normal" ? "completed" : "in-progress",
+      };
       setEquipment((prev) =>
-        mapEquipment(prev, equipmentId, (e) => {
-          const sample: OilSample = {
-            id: uid("smp"),
-            date: input.date,
-            startedAt: nowIso(),
-            completedAt: null,
-            labReportNumber: input.labReportNumber,
-            notes: input.notes,
-            result: input.result,
-            readings: emptyLabReadings(),
-            steps: input.result === "normal" ? freshWorkflowSteps() : [],
-            actions: [],
-            status: "in-progress",
-          };
-          return { ...e, activeSample: sample };
-        })
+        mapEquipment(prev, equipmentId, (e) =>
+          input.result === "normal"
+            ? { ...e, history: [sample, ...e.history] }
+            : { ...e, activeSample: sample }
+        )
       );
       const before = findEquipment(equipmentId);
+      const summary =
+        input.result === "normal"
+          ? `Logged a normal oil sample dated ${formatDate(input.date)} (filed)`
+          : input.result === "abnormal"
+          ? `Logged an abnormal oil sample dated ${formatDate(
+              input.date
+            )} — corrective action required`
+          : `Started a new oil sample dated ${formatDate(
+              input.date
+            )} (awaiting lab report)`;
       pushLog({
         equipmentId,
         equipmentName: before?.name ?? "Equipment",
-        summary: `Started a new oil sample (${
-          input.result === "normal" ? "normal" : "abnormal"
-        }) dated ${formatDate(input.date)}`,
+        summary,
       });
-    },
-    [findEquipment, pushLog]
-  );
-
-  const completeStep = useCallback(
-    (equipmentId: string, stepKey: string, notes: string) => {
-      const before = findEquipment(equipmentId);
-      const stepLabel =
-        before?.activeSample?.steps.find((s) => s.key === stepKey)?.label ??
-        stepKey;
-      let archived = false;
-      setEquipment((prev) =>
-        mapEquipment(prev, equipmentId, (e) => {
-          if (!e.activeSample) return e;
-          const smp = e.activeSample;
-          const target = smp.steps.find((s) => s.key === stepKey);
-          if (!target || target.completed) return e;
-          const steps = smp.steps.map((s) =>
-            s.key === stepKey
-              ? { ...s, completed: true, completedAt: nowIso(), notes }
-              : s
-          );
-          const allDone = steps.every((s) => s.completed);
-          if (allDone) {
-            archived = true;
-            // Final step done: mark complete and archive straight to history.
-            const completed: OilSample = {
-              ...smp,
-              steps,
-              status: "completed",
-              completedAt: nowIso(),
-            };
-            return {
-              ...e,
-              activeSample: null,
-              history: [completed, ...e.history],
-            };
-          }
-          return { ...e, activeSample: { ...smp, steps } };
-        })
-      );
-      if (before?.activeSample) {
-        pushLog({
-          equipmentId,
-          equipmentName: before.name,
-          summary: `Completed step "${stepLabel}"`,
-        });
-        if (archived) {
-          pushLog({
-            equipmentId,
-            equipmentName: before.name,
-            summary: "Sample completed and archived to history",
-          });
-        }
-      }
     },
     [findEquipment, pushLog]
   );
@@ -565,24 +504,51 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
       equipmentId: string,
       sampleId: string,
       patch: Partial<
-        Pick<OilSample, "date" | "notes" | "result" | "labReportNumber">
+        Pick<
+          OilSample,
+          "date" | "notes" | "result" | "labReportNumber" | "labReportFileName"
+        >
       > & { readings?: Partial<OilSample["readings"]> }
     ) => {
       const { equipmentItem, sample } = findSample(equipmentId, sampleId);
+      const isActiveSample = equipmentItem?.activeSample?.id === sampleId;
+      let archived = false;
       setEquipment((prev) =>
-        mapSample(prev, equipmentId, sampleId, (smp) => {
-          const next: OilSample = {
+        mapEquipment(prev, equipmentId, (e) => {
+          const applyPatch = (smp: OilSample): OilSample => ({
             ...smp,
             ...patch,
             readings: patch.readings
               ? { ...smp.readings, ...patch.readings }
               : smp.readings,
-          };
-          // Switching a corrected sample to "normal" needs a workflow to fill.
-          if (patch.result === "normal" && next.steps.length === 0) {
-            next.steps = freshWorkflowSteps();
+          });
+
+          if (e.activeSample?.id === sampleId) {
+            const next = applyPatch(e.activeSample);
+            // Confirming "normal" on the active sample files it immediately —
+            // there's no separate step-by-step review to walk through.
+            if (next.result === "normal") {
+              archived = true;
+              const completed: OilSample = {
+                ...next,
+                status: "completed",
+                completedAt: next.completedAt ?? nowIso(),
+              };
+              return {
+                ...e,
+                activeSample: null,
+                history: [completed, ...e.history],
+              };
+            }
+            return { ...e, activeSample: next };
           }
-          return next;
+
+          return {
+            ...e,
+            history: e.history.map((h) =>
+              h.id === sampleId ? applyPatch(h) : h
+            ),
+          };
         })
       );
       if (!equipmentItem || !sample) return;
@@ -601,9 +567,21 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
           equipmentId,
           equipmentName: equipmentItem.name,
           summary: `Sample outcome changed (${tag})`,
-          from: sample.result === "normal" ? "Normal" : "Abnormal",
+          from:
+            sample.result === "normal"
+              ? "Normal"
+              : sample.result === "abnormal"
+              ? "Abnormal"
+              : "Awaiting report",
           to: patch.result === "normal" ? "Normal" : "Abnormal",
         });
+        if (isActiveSample && archived) {
+          pushLog({
+            equipmentId,
+            equipmentName: equipmentItem.name,
+            summary: `Sample filed to history (${tag})`,
+          });
+        }
       }
       if (
         patch.labReportNumber !== undefined &&
@@ -631,142 +609,6 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
           equipmentId,
           equipmentName: equipmentItem.name,
           summary: `Lab readings updated (${tag})`,
-        });
-      }
-    },
-    [findSample, pushLog]
-  );
-
-  const setStepNotes = useCallback(
-    (equipmentId: string, sampleId: string, stepKey: string, notes: string) => {
-      const { equipmentItem, sample } = findSample(equipmentId, sampleId);
-      const step = sample?.steps.find((s) => s.key === stepKey);
-      setEquipment((prev) =>
-        mapSample(prev, equipmentId, sampleId, (smp) => ({
-          ...smp,
-          steps: smp.steps.map((s) =>
-            s.key === stepKey ? { ...s, notes } : s
-          ),
-        }))
-      );
-      if (equipmentItem && step && step.notes !== notes) {
-        pushLog({
-          equipmentId,
-          equipmentName: equipmentItem.name,
-          summary: `Step "${step.label}" notes changed`,
-          from: trunc(step.notes),
-          to: trunc(notes),
-        });
-      }
-    },
-    [findSample, pushLog]
-  );
-
-  const setStepCompleted = useCallback(
-    (
-      equipmentId: string,
-      sampleId: string,
-      stepKey: string,
-      completed: boolean
-    ) => {
-      const { equipmentItem, sample } = findSample(equipmentId, sampleId);
-      const step = sample?.steps.find((s) => s.key === stepKey);
-      let archived = false;
-      setEquipment((prev) =>
-        mapEquipment(prev, equipmentId, (e) => {
-          const isActive = e.activeSample?.id === sampleId;
-          const target = isActive
-            ? e.activeSample
-            : e.history.find((h) => h.id === sampleId);
-          if (!target) return e;
-
-          const steps = target.steps.map((s) =>
-            s.key === stepKey
-              ? {
-                  ...s,
-                  completed,
-                  completedAt: completed ? s.completedAt ?? nowIso() : null,
-                }
-              : s
-          );
-
-          if (!isActive) {
-            return {
-              ...e,
-              history: e.history.map((h) =>
-                h.id === sampleId ? { ...h, steps } : h
-              ),
-            };
-          }
-
-          const allDone = steps.every((s) => s.completed);
-          if (allDone && e.activeSample) {
-            archived = true;
-            const completedSample: OilSample = {
-              ...e.activeSample,
-              steps,
-              status: "completed",
-              completedAt: e.activeSample.completedAt ?? nowIso(),
-            };
-            return {
-              ...e,
-              activeSample: null,
-              history: [completedSample, ...e.history],
-            };
-          }
-
-          return {
-            ...e,
-            activeSample: { ...e.activeSample!, steps },
-          };
-        })
-      );
-      if (equipmentItem && step && step.completed !== completed) {
-        pushLog({
-          equipmentId,
-          equipmentName: equipmentItem.name,
-          summary: `Step "${step.label}" marked ${
-            completed ? "done" : "not done"
-          }`,
-          from: step.completed ? "Done" : "Not done",
-          to: completed ? "Done" : "Not done",
-        });
-        if (archived) {
-          pushLog({
-            equipmentId,
-            equipmentName: equipmentItem.name,
-            summary: "Sample completed and archived to history",
-          });
-        }
-      }
-    },
-    [findSample, pushLog]
-  );
-
-  const setStepDate = useCallback(
-    (
-      equipmentId: string,
-      sampleId: string,
-      stepKey: string,
-      completedAt: string
-    ) => {
-      const { equipmentItem, sample } = findSample(equipmentId, sampleId);
-      const step = sample?.steps.find((s) => s.key === stepKey);
-      setEquipment((prev) =>
-        mapSample(prev, equipmentId, sampleId, (smp) => ({
-          ...smp,
-          steps: smp.steps.map((s) =>
-            s.key === stepKey ? { ...s, completedAt } : s
-          ),
-        }))
-      );
-      if (equipmentItem && step && step.completedAt !== completedAt) {
-        pushLog({
-          equipmentId,
-          equipmentName: equipmentItem.name,
-          summary: `Step "${step.label}" date changed`,
-          from: formatDateTime(step.completedAt),
-          to: formatDateTime(completedAt),
         });
       }
     },
@@ -914,12 +756,8 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
       updateEquipmentField,
       removeEquipment,
       startSample,
-      completeStep,
       resolveSample,
       editSample,
-      setStepNotes,
-      setStepCompleted,
-      setStepDate,
       addAction,
       editAction,
       setActionDate,
@@ -937,12 +775,8 @@ export function LubeOilProvider({ children }: { children: ReactNode }) {
       updateEquipmentField,
       removeEquipment,
       startSample,
-      completeStep,
       resolveSample,
       editSample,
-      setStepNotes,
-      setStepCompleted,
-      setStepDate,
       addAction,
       editAction,
       setActionDate,

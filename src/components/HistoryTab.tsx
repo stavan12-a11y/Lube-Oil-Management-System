@@ -11,12 +11,7 @@ import {
   ClockIcon,
   TrashIcon,
 } from "./icons";
-import {
-  ActionList,
-  EditableStepList,
-  LabReadingsFields,
-  SampleMeta,
-} from "./SampleEditing";
+import { ActionList, LabReadingsFields, SampleMeta } from "./SampleEditing";
 
 function ResultPill({ result }: { result: OilSample["result"] }) {
   if (result === "normal") {
@@ -43,7 +38,6 @@ function HistoryEntry({
   const { deleteSample } = useLubeOil();
   const [open, setOpen] = useState(false);
   const durationMs = sampleDurationMs(sample);
-  const showSteps = sample.result === "normal" || sample.steps.length > 0;
   const showActions = sample.result === "abnormal" || sample.actions.length > 0;
 
   return (
@@ -82,21 +76,6 @@ function HistoryEntry({
         <div className="animate-fade-in space-y-3 border-t border-slate-100 bg-slate-50 px-4 py-3">
           <SampleMeta equipmentId={equipmentId} sample={sample} />
           <LabReadingsFields equipmentId={equipmentId} sample={sample} />
-
-          {showSteps && (
-            <div>
-              <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                Workflow timeline
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <EditableStepList
-                  equipmentId={equipmentId}
-                  sample={sample}
-                  mode="history"
-                />
-              </div>
-            </div>
-          )}
 
           {showActions && (
             <ActionList equipmentId={equipmentId} sample={sample} />

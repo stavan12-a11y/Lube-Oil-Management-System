@@ -1,5 +1,4 @@
-import type { CorrectiveAction, Equipment, LabReadings, OilSample } from "../types";
-import { SAMPLE_WORKFLOW_STEPS } from "../types";
+import type { CorrectiveAction, Equipment, LabReadings } from "../types";
 
 const DAY = 1000 * 60 * 60 * 24;
 
@@ -27,33 +26,6 @@ function readings(overrides: Partial<LabReadings> = {}): LabReadings {
   };
 }
 
-function completedSteps(
-  startDaysAgo: number,
-  notes: Partial<Record<string, string>> = {}
-): OilSample["steps"] {
-  return SAMPLE_WORKFLOW_STEPS.map((s, i) => ({
-    key: s.key,
-    label: s.label,
-    completed: true,
-    completedAt: iso(startDaysAgo - i, 10 + i),
-    notes: notes[s.key] ?? "",
-  }));
-}
-
-function partialSteps(
-  completedCount: number,
-  startDaysAgo: number,
-  notes: Partial<Record<string, string>> = {}
-): OilSample["steps"] {
-  return SAMPLE_WORKFLOW_STEPS.map((s, i) => ({
-    key: s.key,
-    label: s.label,
-    completed: i < completedCount,
-    completedAt: i < completedCount ? iso(startDaysAgo - i, 10 + i) : null,
-    notes: i < completedCount ? notes[s.key] ?? "" : "",
-  }));
-}
-
 function action(daysAgo: number, description: string): CorrectiveAction {
   return { id: `act_${daysAgo}_${description.length}`, loggedAt: iso(daysAgo, 11), description };
 }
@@ -78,8 +50,9 @@ export function createDemoEquipment(): Equipment[] {
           id: "smp_p101a_current",
           date: dateOnly(12),
           startedAt: iso(12, 8),
-          completedAt: iso(8, 16),
+          completedAt: iso(12, 8),
           labReportNumber: "LAB-2026-0412",
+          labReportFileName: "insight-labs-LAB-2026-0412.pdf",
           notes: "Quarterly routine sample. All readings within normal range.",
           result: "normal",
           readings: readings({
@@ -91,12 +64,6 @@ export function createDemoEquipment(): Equipment[] {
             isoCleanliness: "16/14/11",
             ferrousWearPpm: "8",
             flashPointC: "214",
-          }),
-          steps: completedSteps(12, {
-            collected: "Drawn from mid-stream sample port, warm running.",
-            sent_to_lab: "Shipped to Insight Labs — courier tracking #IN-88213.",
-            report_received: "Report LAB-2026-0412 received, no flags raised.",
-            reviewed: "Reviewed by reliability engineer, filed to equipment record.",
           }),
           actions: [],
           status: "completed",
@@ -117,7 +84,6 @@ export function createDemoEquipment(): Equipment[] {
             isoCleanliness: "20/18/15",
             ferrousWearPpm: "22",
           }),
-          steps: [],
           actions: [
             action(376, "Replaced leaking cooler gasket and drained condensate."),
             action(373, "Full oil change — 45L Mobil DTE Oil Light, filter replaced."),
@@ -127,7 +93,7 @@ export function createDemoEquipment(): Equipment[] {
       ],
     },
 
-    // AMBER — sample drawn, working through the lab/filing workflow
+    // AMBER — sample drawn and sent out, awaiting the lab report
     {
       id: "eq_c201",
       name: "C-201",
@@ -145,13 +111,9 @@ export function createDemoEquipment(): Equipment[] {
         startedAt: iso(3, 9),
         completedAt: null,
         labReportNumber: "",
-        notes: "Routine bi-monthly sample, awaiting lab report.",
-        result: "normal",
-        readings: readings({ viscosity40: "45.6" }),
-        steps: partialSteps(2, 3, {
-          collected: "Sample drawn from discharge sampling valve.",
-          sent_to_lab: "Sent via overnight courier to Insight Labs.",
-        }),
+        notes: "Routine bi-monthly sample, sent to Insight Labs — awaiting report.",
+        result: null,
+        readings: readings(),
         actions: [],
         status: "in-progress",
       },
@@ -176,6 +138,7 @@ export function createDemoEquipment(): Equipment[] {
         startedAt: iso(5, 9),
         completedAt: null,
         labReportNumber: "LAB-2026-0456",
+        labReportFileName: "insight-labs-LAB-2026-0456.pdf",
         notes:
           "Abnormal: ferrous wear 142 ppm and water content 610 ppm — indicates active gear wear and possible seal ingress.",
         result: "abnormal",
@@ -186,7 +149,6 @@ export function createDemoEquipment(): Equipment[] {
           isoCleanliness: "22/20/17",
           ferrousWearPpm: "142",
         }),
-        steps: [],
         actions: [
           action(3, "Inspected input shaft seal — found worn lip seal, ordered replacement."),
           action(1, "Drained and replaced 160L Mobilgear 600 XP 220, changed breather filter."),
@@ -198,12 +160,11 @@ export function createDemoEquipment(): Equipment[] {
           id: "smp_gb301_prev",
           date: dateOnly(190),
           startedAt: iso(190, 9),
-          completedAt: iso(186, 13),
+          completedAt: iso(190, 9),
           labReportNumber: "LAB-2025-0921",
           notes: "Routine sample — normal.",
           result: "normal",
           readings: readings({ viscosity40: "221", waterPpm: "54", ferrousWearPpm: "11" }),
-          steps: completedSteps(190),
           actions: [],
           status: "completed",
         },
@@ -228,12 +189,11 @@ export function createDemoEquipment(): Equipment[] {
           id: "smp_tb401_prev",
           date: dateOnly(140),
           startedAt: iso(140, 8),
-          completedAt: iso(135, 14),
+          completedAt: iso(140, 8),
           labReportNumber: "LAB-2025-1042",
           notes: "Last routine sample — normal, but next round is now overdue.",
           result: "normal",
           readings: readings({ viscosity40: "31.5", waterPpm: "45", tan: "0.09" }),
-          steps: completedSteps(140),
           actions: [],
           status: "completed",
         },
@@ -258,12 +218,11 @@ export function createDemoEquipment(): Equipment[] {
           id: "smp_hy601_prev",
           date: dateOnly(80),
           startedAt: iso(80, 8),
-          completedAt: iso(77, 13),
+          completedAt: iso(80, 8),
           labReportNumber: "LAB-2026-0088",
           notes: "Routine sample — normal, next round due soon.",
           result: "normal",
           readings: readings({ viscosity40: "67.2", waterPpm: "38", isoCleanliness: "15/13/10" }),
-          steps: completedSteps(80),
           actions: [],
           status: "completed",
         },

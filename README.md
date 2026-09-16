@@ -16,12 +16,18 @@ ready (or keep using **Reset demo** in the header to restore the seed).
   lubricant grade, a colour-coded status accent, and the next sample due date.
 - **Detail view** — editable specs (type, lubricant, sampling interval,
   criticality), an active sample workflow, and full archived sample history.
-- **Sample workflow** — record the sample date, lab report #, and lab
-  readings (viscosity, TAN, water content, ISO 4406 cleanliness, ferrous
-  wear, flash point). Normal samples progress through a 4-step
-  collect → lab → report → file workflow. Abnormal samples switch to a
-  corrective-action log (oil change, filter replacement, seal repair, etc.)
-  until resolved.
+- **PDF lab-report upload** — upload the lab's PDF report and the app
+  auto-extracts the readings (viscosity, TAN, water content, ISO 4406
+  cleanliness, ferrous wear, flash point), lab report #, and sample date
+  directly from the text, so nobody has to retype a lab report by hand.
+  Parsing happens entirely in the browser — the PDF itself is never uploaded
+  or stored anywhere. Readings can still be typed in manually if a report
+  isn't parseable or hasn't arrived yet.
+- **Simple sample lifecycle** — record a sample, mark it Normal (files
+  immediately) or Abnormal (opens a corrective-action log: oil change,
+  filter replacement, seal repair, etc. until resolved), or leave the
+  outcome as "report pending" until the lab gets back to you. No manual
+  step-by-step checklist to walk through.
 - **Right sidebar** — sampling schedule (overdue / due soon) and equipment
   awaiting corrective action.
 - **Summary KPI cards** — fleet-wide compliance rate, overdue/due-soon
@@ -41,7 +47,7 @@ equipment items that exercise every status the app supports:
 | Tag | Status | What it shows |
 |-----|--------|----------------|
 | `P-101A` (Boiler Feed Pump) | 🟢 Normal & filed | Full audit history, including a past abnormal result that was corrected |
-| `C-201` (Air Compressor) | 🟡 Sample in progress | A workflow partway through collect → lab → report → file |
+| `C-201` (Air Compressor) | 🟡 Awaiting lab report | Sample drawn and sent out; upload the PDF report to file it |
 | `GB-301` (Main Gearbox) | 🔴 Abnormal — action required | High wear metals + water content, corrective actions logged, unresolved |
 | `TB-401` (Steam Turbine) | 🟢 status, ⚠️ overdue | Last sample was normal but the next round is now overdue |
 | `HY-601` (Hydraulic Power Unit) | 🟢 status, due soon | Next sample due within the warning window |
@@ -52,6 +58,7 @@ equipment items that exercise every status the app supports:
 - React 18 + TypeScript
 - Vite
 - Tailwind CSS
+- pdf.js (`pdfjs-dist`) — in-browser PDF text extraction for lab reports
 - Neon Postgres + Vercel serverless API (optional cloud mode)
 - Vitest for compliance-logic unit tests
 
